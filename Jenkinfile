@@ -1,0 +1,51 @@
+pipeline {
+  environment {
+    CLIENT_EMAIL='<jenkins service email id>'
+    GCLOUD_CREDS=credentials('<jenkins Crede id>') 
+  }
+  agent {
+      node {
+          label 'node1'
+      }
+  }
+  stages {
+      
+    stage('Verify version') {
+      steps {
+        sh '''
+          gcloud version
+        '''
+      }
+    }
+    
+    stage('Authenticate') {
+      steps {
+        sh '''
+          gcloud auth activate-service-account --key-file="$GCLOUD_CREDS"
+        '''
+      }
+    }
+    
+    stage('checkout git'){
+        steps{
+            checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sidpatil2000/Jen-Cloudrun.git']]])
+        }
+    }
+    
+    stage('Install service') {
+      steps {
+        sh '''
+          gcloud run services replace service.yaml --platform='managed' --region='us-central1'
+        '''
+      }
+    }
+    
+    stage('Allow allUsers') {
+      steps {
+        sh '''
+          gcloud run services add-iam-policy-binding hello --region='us-central1' --member='allUsers' --role='roles/run.invoker'
+        '''
+      }
+    }
+  }
+}
